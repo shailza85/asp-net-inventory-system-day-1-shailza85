@@ -12,7 +12,8 @@ namespace InventorySystem.Controllers
     [ApiController]
     public class AdminAPIController : ControllerBase
     {
-          
+        /* Create an HttpPost “AddProduct” endpoint that allows the user to add a product to the database*/
+        
         [HttpPost("Product/AddProduct")]
         public ActionResult AddProduct_POST(string name, string quantity)
         {
@@ -148,9 +149,7 @@ namespace InventorySystem.Controllers
                 
                 if (e.SubExceptions.Any(x => x.GetType() == typeof(NullReferenceException)))
                 {
-                    //response = NotFound(new { error = $"No entity exists at ID {id}." });
-                    //   response = StatusCode(403, new { message = $"No entity exists at ID {id}." });
-                    response = StatusCode(403, new { errors = e.SubExceptions.Select(x => x.Message) });
+                  response = StatusCode(403, new { errors = e.SubExceptions.Select(x => x.Message) });
                 }
                 // If there's no NullReferenceException, but there's still an exception, return the list of problems.
                 else
