@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel;
 
 namespace InventorySystem.Models
 {
@@ -13,7 +16,27 @@ namespace InventorySystem.Models
         Set to false by default
 
      */
-    public class Product
+
+    [Table("product")]
+    public partial class Product
     {
-    }
+        [Key]
+        [Column("ID", TypeName = "int(10)")]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int ID { get; set; }
+
+        [Required]
+        [Column(TypeName = "varchar(30)")]
+        public string Name { get; set; }
+
+        [Required]
+        [Range(0, int.MaxValue)]
+        [Column(TypeName = "int(10)")]
+        public int Quantity { get; set; }
+
+        [DefaultValue(false)]
+        [Column(TypeName = "BOOLEAN")]
+        public bool IsDiscontinued { get; set; }
+
+       }
 }
