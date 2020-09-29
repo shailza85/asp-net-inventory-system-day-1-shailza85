@@ -12,167 +12,166 @@ namespace InventorySystem.Controllers
     [ApiController]
     public class AdminAPIController : ControllerBase
     {
-        /* Create an HttpPost “AddProduct” endpoint that allows the user to add a product to the database*/
-        
-        [HttpPost("Product/AddProduct")]
-        public ActionResult AddProduct_POST(string name, string quantity)
-        {
-            ActionResult response;
-            try
-            {
-                int newID = new AdminController().AddProduct(name, quantity);
-
-                // Just for fun:
-                // (It's also an example of how to throw a code that doesn't have a method built-in)
-                if (name.Trim().ToUpper() == "TEAPOT" && quantity.Trim().ToUpper() == "COFFEE")
-                {
-                    response = StatusCode(418, new { message = $"Successfully created teapot but it does not want to brew coffee." });
-                }
-                else
-                {
-                    // This should really be a Create() that provides the API endpoint for the GET to retrieve the created object.
-                    response = Created($"API/AdminAPI/Product/ID/{newID}", new { message = $"Successfully created product {name} {quantity} at ID {newID}." });
-                }
-            }
-            catch (ProductValidationException e)
-            {
-                response = UnprocessableEntity(new { errors = e.SubExceptions.Select(x => x.Message) });
-            }
-
-
-            return response;
-        }
-
         /*
-         * Create an HttpPut “DiscontinueProduct” endpoint that allows the user to discontinue a product
-            Accepts the product ID as a parameter
-            If Product ID is invalid  - respond with Http Status 403 and include a descriptive message in the Content
-            Set IsDiscontinued to false
-         * */
+          For Response "Ok":
+          PUT or POST: The resource describing the result of the action is transmitted in the message body.
+          - PUT or POST - This descriptor applies to when we respond to a PUT or POST request with Ok.
+          - The resourse - The new entity that we've created, or the entity that we've modified.
+          - The result - The entity that has been created, or post-modification.
+          - Transmitted in the message body - Encode it as JSON and send it with the Ok.
+          */
 
-        [HttpPut("Product/DiscontinueProduct")]
-        public ActionResult DiscontinueProduct_PUT(string id, string isdiscontinued)
+        [HttpPost("AddProduct")]
+        public ActionResult<Product> AddProduct(string name, string quantity, string isDiscontinued)
         {
-            ActionResult response;
+            ActionResult<Product> response;
+            Product created;
             try
             {
-                new AdminController().DiscontinueProduct(id, isdiscontinued);
-
-                // Semantically, we should be including a copy of the object (or at least a DTO rendering of it) in the Ok response.
-                // For our purposes, a message with the fields will suffice.
-                response = Ok(new { message = $"Successfully updated product at ID {id} that is to be discontinued {isdiscontinued}." });
+                // We aren't concerned with validation here. Only in BLL.
+                created = new AdminController().CreateProduct(name, quantity, isDiscontinued);
+                // Encode our created object as JSON and bounce it back with the request.
+                response = Ok(created);
             }
-            catch (ProductValidationException e)
+            catch (Exception e)
             {
-                // If it couldn't find the entity to update, that's the primary concern, so discard the other subexceptions and just return NotFound().
-                if (e.SubExceptions.Any(x => x.GetType() == typeof(NullReferenceException)))
-                {
-                    response = StatusCode(403, new { message = $"No entity exists at ID {id}." });
-                    
-                }
-                // If there's no NullReferenceException, but there's still an exception, return the list of problems.
-                else
-                {
-                    response = UnprocessableEntity(new { errors = e.SubExceptions.Select(x => x.Message) });
-                }
+                response = UnprocessableEntity(new { error = e.Message });
             }
 
-
+            // Return the response.
             return response;
         }
 
 
-        /*
-        * Create an HttpPut “AddQuantityProduct” endpoint that allows the user to add to a product’s quantity
-           Accepts the product ID as a parameter
-           If Product ID is invalid  - respond with Http Status 403 and include a descriptive message in the Content
-           AmountAdded must be a positive integer
-           If integer invalid  - respond with Http Status 403 and include a descriptive message in the Content
-           User cannot add to a product that has been discontinued
-           If Product is discontinued - respond with Http Status 403 and include a descriptive message in the Content
-
-         */
-
-        [HttpPut("Product/AddQuantity")]
-        public ActionResult AddQuantityProduct_PUT(string id, string quantity)
+        [HttpPut("DiscontinueProduct")]
+        public ActionResult<Product> DiscontinueProduct(string id)
         {
-            ActionResult response;
+            ActionResult<Product> response;
+            Product modified;
             try
             {
-                new AdminController().UpdateQuantity(id, quantity);
-                // (It's also an example of how to throw a code that doesn't have a method built-in)
-                // Semantically, we should be including a copy of the object (or at least a DTO rendering of it) in the Ok response.
-                // For our purposes, a message with the fields will suffice.
-                response = Ok(new { message = $"Successfully update quantity at ID {id} to {quantity}." });
+                // We aren't concerned with validation here. Only in BLL.
+                modified = new AdminController().DiscontinueProductByID(id);
+                // Encode our created object as JSON and bounce it back with the request.
+                response = Ok(modified);
             }
-            catch (ProductValidationException e)
+            catch (InvalidOperationException)
             {
-                // If it couldn't find the entity to update, that's the primary concern, so discard the other subexceptions and just return NotFound().
-                if (e.SubExceptions.Any(x => x.GetType() == typeof(NullReferenceException)))
-                {
-                    //response = NotFound(new { error = $"No entity exists at ID {id}." });
-                    response = StatusCode(403, new { message = $"No entity exists at ID {id}." });
-                }
-                // If there's no NullReferenceException, but there's still an exception, return the list of problems.
-                else
-                {
-                    // response = UnprocessableEntity(new { errors = e.SubExceptions.Select(x => x.Message) });
-                    response = StatusCode(403, new { errors = e.SubExceptions.Select(x => x.Message) });
-                }
+                response = StatusCode(403, new { error = $"No product was found with the ID of {id}." });
             }
+            catch (Exception e)
+            {
+                response = StatusCode(403, new { error = e.Message }); ;
+            }
+
+            // Return the response.
             return response;
         }
 
-        /*
-         * Create an HttpPut “SubtractQuantityProduct” endpoint that allows the user to subtract from a product’s quantity
-            Accepts the product ID as a parameter
-            If Product ID is invalid  - respond with Http Status 403 and include a descriptive message in the Content
-            AmountSubtracted must be less than or equal to the current quantity and greater than zero
-            If user attempts to subtract more than is in stock, reject the entire transaction, respond with Http Status 403 and include a descriptive message in the Content
-
-         */
-
-       
-        [HttpPut("Product/SubtractQuantityProduct")]
-        public ActionResult SubtractQuantityProduct_PUT(string id, string subtractAmount)
+        [HttpPut("AddQuantityProduct")]
+        public ActionResult<Product> AddQuantityProduct(string id, string amount)
         {
-            ActionResult response;
+            ActionResult<Product> response;
+            Product modified;
             try
             {
-                new AdminController().SubtractQuantity(id, subtractAmount);
-                // Semantically, we should be including a copy of the object (or at least a DTO rendering of it) in the Ok response.
-                // For our purposes, a message with the fields will suffice.
-                response = Ok(new { message = $"Successfully updated Quantity at ID {id} and after subtraction, the quantity is :{subtractAmount}." });
+                // We aren't concerned with validation here. Only in BLL.
+                modified = new AdminController().AddQuantityToProductByID(id, amount);
+                // Encode our created object as JSON and bounce it back with the request.
+                response = Ok(modified);
             }
-            catch (ProductValidationException e)
+            catch (InvalidOperationException)
             {
-                
-                if (e.SubExceptions.Any(x => x.GetType() == typeof(NullReferenceException)))
-                {
-                  response = StatusCode(403, new { errors = e.SubExceptions.Select(x => x.Message) });
-                }
-                // If there's no NullReferenceException, but there's still an exception, return the list of problems.
-                else
-                {
-                    response = StatusCode(403, new { errors = e.SubExceptions.Select(x => x.Message) });
-                }
+                response = StatusCode(403, new { error = $"No product was found with the ID of {id}." });
             }
+            catch (Exception e)
+            {
+                response = StatusCode(403, new { error = e.Message }); ;
+            }
+
+            // Return the response.
             return response;
         }
-
-        /*  Create an HttpGet “ShowInventory” endpoint that displays the entire inventory
-          Requires no parameters
-          This endpoint will not return products that have been discontinued
-          Order by “Quantity” from lowest to highest so that user will know what needs to be restocked*/
-
-        [HttpGet("Product/ShowInventory")]
-        public ActionResult<IEnumerable<Product>> GetInventory()
+        [HttpPut("SubtractQuantityProduct")]
+        public ActionResult<Product> SubtractQuantityProduct(string id, string amount)
         {
+            ActionResult<Product> response;
+            Product modified;
+            try
+            {
+                // We aren't concerned with validation here. Only in BLL.
+                modified = new AdminController().SubtractQuantityFromProductByID(id, amount);
+                // Encode our created object as JSON and bounce it back with the request.
+                response = Ok(modified);
+            }
+            catch (InvalidOperationException)
+            {
+                response = StatusCode(403, new { error = $"No product was found with the ID of {id}." });
+            }
+            catch (Exception e)
+            {
+                response = StatusCode(403, new { error = e.Message }); ;
+            }
 
-            return new AdminController().GetProduct();
+            // Return the response.
+            return response;
+        }
+        [HttpGet("ShowInventory")]
+        public ActionResult<List<Product>> ShowInventory()
+        {
+            // TODO: Catch for unable to connect to database.
+            // Return the response.
+            return new AdminController().GetProducts();
         }
 
+
+        [HttpPatch("ModifyQuantity")]
+        public ActionResult<Product> ModifyQuantity(string id, string op, string amount)
+        {
+            ActionResult<Product> response;
+
+            op = op ?? "".Trim().ToLower();
+            string[] validOps = { "add", "subtract" };
+            if (!validOps.Contains(op))
+            {
+                response = UnprocessableEntity(new { error = "Invalid PATCH operation specified, choices are 'add' and 'subtract'." });
+            }
+            else
+            {
+                Product modified;
+                try
+                {
+                    switch (op)
+                    {
+                        case "add":
+                            modified = new AdminController().AddQuantityToProductByID(id, amount);
+                            response = Ok(modified);
+                            break;
+                        case "subtract":
+                            modified = new AdminController().SubtractQuantityFromProductByID(id, amount);
+                            response = Ok(modified);
+                            break;
+                        default:
+                            response = StatusCode(500);
+                            break;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    response = StatusCode(403, new { error = $"No product was found with the ID of {id}." });
+                }
+                catch (Exception e)
+                {
+                    response = StatusCode(403, new { error = e.Message }); ;
+                }
+            }
+
+
+            // Return the response.
+            return response;
+        }
     }
+
 }
 
 // Code borrowed @link: https://github.com/TECHCareers-by-Manpower/4.1-MVC/blob/e9c88722d326733c92e8e8c10c85edc53637fabc/MVC_4Point1/Controllers/PersonAPIController.cs
